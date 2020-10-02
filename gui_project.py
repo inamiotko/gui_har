@@ -3,9 +3,7 @@ from tkinter import filedialog
 import tkinter.ttk as ttk
 import pandas as pd
 import os
-import tensorflow
 from keras.models import load_model
-# from tensorflow.keras.models import load_model
 import json
 import numpy as np
 import matplotlib.pyplot as plt
@@ -67,7 +65,7 @@ def browse_files():
             label_results['anchor'] = 'nw'
             label_results['justify'] = 'left'
             label_results['wraplength'] = 500
-            label_results["text"] = 'Recognised Human Activities with probability rates: \n' \
+            label_results["text"] = 'Recognised Human Activities with accuracy rates: \n' \
                                     f'{predictions_label}'
 
     button2 = tk.Button(text="Execute", width=15, height=3, bg="grey", fg="black", command=chosen_model)
@@ -202,6 +200,8 @@ def browse_files_graph():
     graphs_chooser.bind("<<ComboboxSelected>>", callback)
 
 
+label_representation = tk.Label(window, text="Human Activity data representation", width=40, height=2, fg="black", bg="lightgrey", font="-weight bold")
+label_recognition = tk.Label(window, text="Human Activity Recognition", width=40, height=2, fg="black", bg="lightgrey", font="-weight bold")
 button1 = tk.Button(text="Browse", width=10, height=2, bg="grey", fg="black", command=browse_files)
 label_files = tk.Label(window, text="Choose desired signal", width=40, height=2, fg="blue")
 label_files_img = tk.Label(window, text="Choose desired signal", width=40, height=2, fg="blue")
@@ -211,9 +211,11 @@ chooser = ttk.Combobox(window)
 chooser['values'] = choices
 chooser.current(0)
 
-label_results = tk.Label(window, text="Recognised human activity:  ", width=50, height=7, fg="black")
+label_results = tk.Label(window, text="Recognised human activity:  ", width=50, height=6, fg="black")
 
+label_recognition.place(x=20, y=10)
 label_files.place(x=20, y=50)
+label_representation.place(x=20, y=210)
 label_files_img.place(x=20, y=250)
 button1.place(x=390, y=50)
 button3.place(x=390, y=250)
