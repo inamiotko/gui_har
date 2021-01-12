@@ -7,14 +7,17 @@ from keras.models import load_model
 import json
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import seaborn as sns
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from collections import Counter
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 
 class MainApplication(tk.Frame):
+    # Main application window
+    # it contains declaration of all window elements
+    # and their location inside the window.
     def __init__(self, parent, *args, **kwargs):
         tk.Frame.__init__(self, parent, *args, **kwargs)
         self.results_label = None
@@ -55,6 +58,10 @@ class MainApplication(tk.Frame):
         self.parent = parent
 
     def browse_files(self):
+        '''
+        Function used to upload files for further activity classification,
+        it accepts files with .txt extension.
+        '''
         try:
             filename = filedialog.askopenfilename(filetypes=(('Accelerometer data files', '.txt'),))
             self.dataset = np.loadtxt(filename, delimiter=',')
@@ -62,17 +69,23 @@ class MainApplication(tk.Frame):
             self.button2['state'] = 'normal'
             file = os.path.basename(filename)
             self.label_files.config(fg='black', text=f'Chosen file:{file}')
-        except(OSError, FileNotFoundError):
+        except(FileNotFoundError, FileExistsError):
             print(f'Unable to find or open file')
             self.label_files.config(fg='red', text='You need to choose file')
+        except ValueError:
+            print(f'Wrong file type')
+            self.label_files.config(fg='red', text='Calssification is not available for this file')
 
     def chosen_model(self):
+        '''
+        Uploading neural network models,
+        formatting results inside label_results label.
+        '''
         chosen = self.chooser.get()
         if chosen == 'First model':
             loaded_model = load_model('./model_1.h5', compile=False)
         else:
             loaded_model = load_model('./model_2.h5', compile=False)
-
         predict = loaded_model.predict(self.dataset)
         predict = np.argmax(predict, axis=1)
         predictions = Counter(predict)
@@ -97,7 +110,7 @@ class MainApplication(tk.Frame):
             percentage = str(percentage) + '%'
             predictions_label.append(percentage)
             results = ""
-
+            # changing label_results size to fit multiline (over 4 lines) results
             for activity, percentage in zip(predictions_label[0::2], predictions_label[1::2]):
                 results = results + activity + " " + percentage + "\n" + " "
             nlines = results.count('\n')
@@ -109,6 +122,12 @@ class MainApplication(tk.Frame):
                                       text=f'Recognized Human Activities: \n {results}')
 
     def browse_files_graph(self):
+        '''
+        Uploading files for data representation,
+        allowed extensions are: .txt, .json, .npy, .csv;
+        also appropriate data preprocessing for each data file extension
+        for further data representation.
+        '''
         try:
             self.filename = filedialog.askopenfilename(
                 filetypes=(('Physical Activity data files', '.json .txt .npy .csv'),))
@@ -198,7 +217,6 @@ class MainApplication(tk.Frame):
                     sit = df[df['activity'] == 'Sitting']
                     up = df[df['activity'] == 'Upstairs']
                     down = df[df['activity'] == 'Downstairs']
-
                 else:
                     graphs = ['acceleration data combined', 'acceleration data X', 'acceleration data Y',
                               'acceleration data Z']
@@ -208,133 +226,159 @@ class MainApplication(tk.Frame):
                     df = pd.read_csv(self.filename, header=None,
                                      sep=',',
                                      names=columns)
-
-        except(OSError, FileNotFoundError):
+        except(FileExistsError, FileNotFoundError):
             print(f'Unable to find or open file')
             self.label_files_img.config(fg='red', text='You need to choose file')
+        except(KeyError, ValueError):
+            print(f'Wrong file')
+            self.label_files_img.config(fg='red', text='Data representation is not available for this file')
 
         def callback(event):
+            '''
+            Callback for when certain graph is chosen
+            to represent each graph for every data type.
+            '''
+            try:
+                self.label_files_img['text'] = self.graphs_chooser.get()
+                if self.filename.endswith(
+                        '.json') and self.graphs_chooser.get() == 'amount of steps throughout the time period':
+                    fig = plt.figure(figsize=(8, 5))
+                    ax = fig.add_subplot(111)
+                    ax.bar(data2['day_number'], data2['total'])
+                    ax.set_ylabel('Total number of steps')
+                    ax.set_xlabel('Number of the day')
 
-            if self.filename.endswith(
-                    '.json') and self.graphs_chooser.get() == 'amount of steps throughout the time period':
-                fig = plt.figure(figsize=(8, 5))
-                ax = fig.add_subplot(111)
-                ax.bar(data2['day_number'], data2['total'])
-                ax.set_ylabel('Total number of steps')
-                ax.set_xlabel('Number of the day')
+                elif self.filename.endswith(
+                        '.json') and self.graphs_chooser.get() == 'intensity of movement throughout the days':
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    ax = sns.heatmap(data3, cbar_kws={'label': 'Intensity'}, xticklabels=False)
+                    ax.invert_yaxis()
+                    ax.set_xlabel('Minutes in one day period')
+                    ax.set_ylabel('Number of the day')
 
-            elif self.filename.endswith(
-                    '.json') and self.graphs_chooser.get() == 'intensity of movement throughout the days':
-                fig, ax = plt.subplots(figsize=(8, 5))
-                ax = sns.heatmap(data3, cbar_kws={'label': 'Intensity'}, xticklabels=False)
-                ax.invert_yaxis()
-                ax.set_xlabel('Minutes in one day period')
-                ax.set_ylabel('Number of the day')
+                elif self.filename.endswith('.json') and self.graphs_chooser.get() == 'BPM measured throughout the day':
+                    fig = plt.figure(figsize=(8, 5))
+                    ax = fig.add_subplot(111)
+                    ax.set_xlabel('Time of the day [seconds]')
+                    ax.set_ylabel('Measured BPM')
+                    ax.scatter(hrdf['overall_time_sec'], hrdf['bpm'], s=2)
 
-            elif self.filename.endswith('.json') and self.graphs_chooser.get() == 'BPM measured throughout the day':
-                fig = plt.figure(figsize=(8, 5))
-                ax = fig.add_subplot(111)
-                ax.set_xlabel('Time of the day [seconds]')
-                ax.set_ylabel('Measured BPM')
-                ax.scatter(hrdf['overall_time_sec'], hrdf['bpm'], s=2)
+                elif self.filename.endswith('.npy') and self.graphs_chooser.get() == 'intensity of activities':
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    ax.imshow(df_c)
+                    h = [10, 12, 16, 20]
+                    ax.set_yticks([5, 20, 35, 50])
+                    ax.set_yticklabels(h)
+                    ax.set_xlabel('Days')
+                    ax.set_ylabel('Time of day')
 
-            elif self.filename.endswith('.npy') and self.graphs_chooser.get() == 'intensity of activities':
-                fig, ax = plt.subplots(figsize=(8, 5))
-                ax.imshow(df_c)
-                h = [10, 12, 16, 20]
-                ax.set_yticks([5, 20, 35, 50])
-                ax.set_yticklabels(h)
-                ax.set_xlabel('Days')
-                ax.set_ylabel('Time of day')
+                elif self.filename.endswith('.csv') and \
+                        self.graphs_chooser.get() == 'intensity of movement throughout the days':
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    ax = sns.heatmap(data, cbar_kws={'label': 'Intensity'}, xticklabels=False)
+                    ax.invert_yaxis()
+                    ax.set_xlabel('Minutes in one day period')
+                    ax.set_ylabel('Number of the day')
 
-            elif self.filename.endswith('.csv') and \
-                    self.graphs_chooser.get() == 'intensity of movement throughout the days':
-                fig, ax = plt.subplots(figsize=(8, 5))
-                ax = sns.heatmap(data, cbar_kws={'label': 'Intensity'}, xticklabels=False)
-                ax.invert_yaxis()
-                ax.set_xlabel('Minutes in one day period')
-                ax.set_ylabel('Number of the day')
+                elif self.filename.endswith('.csv') and \
+                        self.graphs_chooser.get() == 'amount of steps throughout the time period':
+                    fig = plt.figure(figsize=(8, 5))
+                    ax = fig.add_subplot(111)
+                    ax.bar(data_st['day_number'], data_st['Steps'])
+                    ax.set_ylabel('Total number of steps')
+                    ax.set_xlabel('Number of the day')
 
-            elif self.filename.endswith('.csv') and \
-                    self.graphs_chooser.get() == 'amount of steps throughout the time period':
-                fig = plt.figure(figsize=(8, 5))
-                ax = fig.add_subplot(111)
-                ax.bar(data_st['day_number'], data_st['Steps'])
-                ax.set_ylabel('Total number of steps')
-                ax.set_xlabel('Number of the day')
-
-            else:
-                def fft_graph(dataframe):
-                    sampling_freq = 20
-                    graph_list_x = dataframe['x-axis'].tolist()
-                    graph_list_y = dataframe['y-axis'].tolist()
-                    graph_list_z = dataframe['z-axis'].tolist()
-                    fourierTransform_x = np.fft.fft(graph_list_x) / len(graph_list_x)
-                    fourierTransform_x = fourierTransform_x[range(int(len(graph_list_x) / 2))]
-                    fourierTransform_y = np.fft.fft(graph_list_y) / len(graph_list_y)
-                    fourierTransform_y = fourierTransform_y[range(int(len(graph_list_y) / 2))]
-                    fourierTransform_z = np.fft.fft(graph_list_z) / len(graph_list_z)
-                    fourierTransform_z = fourierTransform_z[range(int(len(graph_list_z) / 2))]
-                    tpCount_x = len(graph_list_x)
-                    tpCount_y = len(graph_list_y)
-                    tpCount_z = len(graph_list_z)
-                    values_x = np.arange(int(tpCount_x / 2))
-                    values_y = np.arange(int(tpCount_y / 2))
-                    values_z = np.arange(int(tpCount_z / 2))
-                    timePeriod_x = tpCount_x / sampling_freq
-                    timePeriod_y = tpCount_y / sampling_freq
-                    timePeriod_z = tpCount_z / sampling_freq
-                    frequencies_x = values_x / timePeriod_x
-                    frequencies_y = values_y / timePeriod_y
-                    frequencies_z = values_z / timePeriod_z
-                    ax.plot(frequencies_x, abs(fourierTransform_x), label='x')
-                    ax.plot(frequencies_y, abs(fourierTransform_y), label='y')
-                    ax.plot(frequencies_z, abs(fourierTransform_z), label='z')
-                    ax.legend()
-                    ax.set_xlabel('Frequency')
-                    ax.set_ylabel('Amplitude')
-
-                fig, ax = plt.subplots(figsize=(8, 5))
-                x = df['x-axis'][:numb]
-                y = df['y-axis'][:numb]
-                z = df['z-axis'][:numb]
-                if self.graphs_chooser.get() == 'acceleration data combined':
-                    ax.plot(x, label='x')
-                    ax.plot(y, label='y')
-                    ax.plot(z, label='z')
-                    ax.legend()
-                elif self.graphs_chooser.get() == 'FFT spectrum for jogging':
-                    fft_graph(jog)
-                elif self.graphs_chooser.get() == 'FFT spectrum for walking':
-                    fft_graph(walk)
-                elif self.graphs_chooser.get() == 'FFT spectrum for walking upstairs':
-                    fft_graph(up)
-                elif self.graphs_chooser.get() == 'FFT spectrum for walking downstairs':
-                    fft_graph(down)
-                elif self.graphs_chooser.get() == 'FFT spectrum for standing':
-                    fft_graph(stand)
-                elif self.graphs_chooser.get() == 'FFT spectrum for sitting':
-                    fft_graph(sit)
-                elif self.graphs_chooser.get() == 'acceleration data X':
-                    ax.plot(x)
-                elif self.graphs_chooser.get() == 'acceleration data Y':
-                    ax.plot(y)
-                elif self.graphs_chooser.get() == 'number of samples per activity' and 'WISDM' in self.filename:
-                    ax.bar(df.activity.unique(), df['activity'].value_counts())
-                    ax.set_xlabel('Activity')
-                    ax.set_ylabel('Number of Samples')
                 else:
-                    ax.plot(z)
+                    def fft_graph(dataframe):
+                        '''
+                        Function used to create Fast Fourier Transform on accelerometer data signal
+                        and representation of signal spectrum on graphs.
+                        :param dataframe: (dataframe) containing data consisting of one activity
+                        '''
+                        sampling_freq = 20
+                        graph_list_x = dataframe['x-axis'].tolist()
+                        graph_list_y = dataframe['y-axis'].tolist()
+                        graph_list_z = dataframe['z-axis'].tolist()
+                        fourierTransform_x = np.fft.fft(graph_list_x) / len(graph_list_x)
+                        fourierTransform_x = fourierTransform_x[range(int(len(graph_list_x) / 2))]
+                        fourierTransform_y = np.fft.fft(graph_list_y) / len(graph_list_y)
+                        fourierTransform_y = fourierTransform_y[range(int(len(graph_list_y) / 2))]
+                        fourierTransform_z = np.fft.fft(graph_list_z) / len(graph_list_z)
+                        fourierTransform_z = fourierTransform_z[range(int(len(graph_list_z) / 2))]
+                        tpCount = len(graph_list_x)
+                        values = np.arange(int(tpCount / 2))
+                        timePeriod = tpCount / sampling_freq
+                        frequencies = values / timePeriod
+                        ax.plot(frequencies, abs(fourierTransform_x), label='x')
+                        ax.plot(frequencies, abs(fourierTransform_y), label='y')
+                        ax.plot(frequencies, abs(fourierTransform_z), label='z')
+                        ax.legend()
 
-            canvas = FigureCanvasTkAgg(fig, master=window)
-            canvas.draw()
-            canvas.get_tk_widget().place(x=20, y=300)
-            self.label_files_img['text'] = self.graphs_chooser.get()
+                        ax.set_xlabel('Frequency [Hz]')
+                        ax.set_ylabel('Amplitude [$\mathregular{m/s^2}$]')
+
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    x = df['x-axis'][:numb]
+                    y = df['y-axis'][:numb]
+                    z = df['z-axis'][:numb]
+                    if self.graphs_chooser.get() == 'acceleration data combined':
+                        ax.plot(x, label='x')
+                        ax.plot(y, label='y')
+                        ax.plot(z, label='z')
+                        ax.set_xlabel('Timestamp [ms]')
+                        ax.set_ylabel('Acceleration rate [$\mathregular{m/s^2}$]')
+                        ax.legend()
+                    elif self.graphs_chooser.get() == 'FFT spectrum for jogging':
+                        fft_graph(jog)
+                    elif self.graphs_chooser.get() == 'FFT spectrum for walking':
+                        fft_graph(walk)
+                    elif self.graphs_chooser.get() == 'FFT spectrum for walking upstairs':
+                        fft_graph(up)
+                    elif self.graphs_chooser.get() == 'FFT spectrum for walking downstairs':
+                        fft_graph(down)
+                    elif self.graphs_chooser.get() == 'FFT spectrum for standing':
+                        fft_graph(stand)
+                    elif self.graphs_chooser.get() == 'FFT spectrum for sitting':
+                        fft_graph(sit)
+                    elif self.graphs_chooser.get() == 'acceleration data X':
+                        ax.plot(x)
+                        ax.set_xlabel('Timestamp [ms]')
+                        ax.set_ylabel('Acceleration rate [$\mathregular{m/s^2}$]')
+                    elif self.graphs_chooser.get() == 'acceleration data Y':
+                        ax.plot(y)
+                        ax.set_xlabel('Timestamp [ms]')
+                        ax.set_ylabel('Acceleration rate [$\mathregular{m/s^2}$]')
+                    elif self.graphs_chooser.get() == 'number of samples per activity' and 'WISDM' in self.filename:
+                        ax.bar(df.activity.unique(), df['activity'].value_counts())
+                        ax.set_xlabel('Activity')
+                        ax.set_ylabel('Number of Samples')
+                    else:
+                        ax.plot(z)
+                        ax.set_xlabel('Timestamp [ms]')
+                        ax.set_ylabel('Acceleration rate [$\mathregular{m/s^2}$]')
+                # declaring canvas for data representation
+                self.canvas = FigureCanvasTkAgg(fig, master=window)
+                self.canvas.get_tk_widget().place(x=20, y=300)
+                self.canvas.draw()
+                self.toolbar = NavigationToolbar2Tk(self.canvas, window)
+                self.toolbar.place(x=20, y=300)
+                self.toolbar.update()
+
+            except (ValueError, TypeError, NameError):
+                print(f'Wrong file type')
+                self.label_files_img.config(fg='red', text='Representation is not available for this file')
+                try:
+                    for item in self.canvas.get_tk_widget().find_all():
+                        self.canvas.get_tk_widget().delete(item)
+                except AttributeError:
+                    pass
+
 
         self.graphs_chooser.bind("<<ComboboxSelected>>", callback)
 
 
 if __name__ == "__main__":
+    # setting additional window parameters
     window = tk.Tk()
     window.resizable(False, False)
     window.geometry("900x800")
